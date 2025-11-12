@@ -1,18 +1,11 @@
 import 'package:geolocator/geolocator.dart';
 
-class PositionLike {
-  final double latitude;
-  final double longitude;
-  PositionLike(this.latitude, this.longitude);
-}
-
 class LocationService {
   static final instance = LocationService._internal();
   LocationService._internal();
 
-  Future<bool> isLocationServiceEnabled() async {
-    return await Geolocator.isLocationServiceEnabled();
-  }
+  Future<bool> isLocationServiceEnabled() async =>
+      await Geolocator.isLocationServiceEnabled();
 
   Future<bool> requestLocationPermission() async {
     final permission = await Geolocator.requestPermission();
@@ -20,34 +13,41 @@ class LocationService {
         permission == LocationPermission.whileInUse;
   }
 
-  Future<void> openLocationSettings() async {
-    await Geolocator.openLocationSettings();
-  }
+  Future<void> openLocationSettings() async =>
+      Geolocator.openLocationSettings();
 
-  Future<void> openAppSettings() async {
-    await Geolocator.openAppSettings();
-  }
+  Future<void> openAppSettings() async =>
+      Geolocator.openAppSettings();
 
-  Future<PositionLike> getCurrentLocation() async {
+  Future<Map<String, dynamic>> getCurrentLocation() async {
     await Geolocator.requestPermission();
     final pos = await Geolocator.getCurrentPosition();
-    return PositionLike(pos.latitude, pos.longitude);
+    final lat = pos.latitude;
+    final lon = pos.longitude;
+
+    return {
+      'latitude': lat,
+      'longitude': lon,
+      'address': '$lat, $lon'
+    };
   }
 
-  Future<String> getTimezone([double? lat, double? lon]) async {
-    return DateTime.now().timeZoneName;
-  }
+  Future<String> getTimezone([double? lat, double? lon]) async =>
+      DateTime.now().timeZoneName;
 
-  Future<String> getAddressFromCoordinates(double lat, double lon) async {
-    return '$lat, $lon';
-  }
-
-  Future<void> saveLocationToSupabase(double lat, double lon) async {
+  Future<void> saveLocationToSupabase([dynamic arg1, dynamic arg2]) async {
+    double lat;
+    double lon;
+    if (arg1 is Map) {
+      lat = (arg1['latitude'] ?? 0).toDouble();
+      lon = (arg1['longitude'] ?? 0).toDouble();
+    } else {
+      lat = (arg1 ?? 0).toDouble();
+      lon = (arg2 ?? 0).toDouble();
+    }
     print('Saving location to Supabase: $lat, $lon');
   }
 
-  Future<PositionLike> getCurrentLocationFromSupabase() async {
-    // Stub value
-    return PositionLike(0.0, 0.0);
-  }
+  Future<Map<String, double>> getCurrentLocationFromSupabase() async =>
+      {'latitude': 0.0, 'longitude': 0.0};
 }
