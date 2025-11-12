@@ -6,4 +6,5 @@ flutter --version
 flutter config --enable-web
 flutter precache --web
 flutter pub get
-flutter build web --release --web-renderer canvaskit
+# Use default renderer to avoid CLI flag mismatch
+flutter build web --release
