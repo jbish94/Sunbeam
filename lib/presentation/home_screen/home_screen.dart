@@ -25,9 +25,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isLoadingWeather = false;
   String _currentLocation = 'Fetching location...';
 
+  // Instantiate services (no static .instance reference here)
   final LocationService _locationService = LocationService();
   final WeatherService _weatherService = WeatherService.instance;
 
+  // Goal settings (persisted)
   Map<String, dynamic> userGoals = {
     'primary_goal_type': 'sessions_per_day',
     'enable_secondary_goal': true,
@@ -38,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'total_minutes_per_week': 210,
   };
 
+  // Mock current progress (replace with real logs later)
   Map<String, dynamic> currentProgress = {
     'sessions_today': 1,
     'minutes_today': 15,
@@ -45,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'minutes_this_week': 120,
   };
 
+  // Chart data
   final List<Map<String, dynamic>> hourlyUvData = [
     {"time": "6AM", "uvIndex": 1, "temp": 65},
     {"time": "8AM", "uvIndex": 3, "temp": 68},
@@ -56,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     {"time": "8PM", "uvIndex": 2, "temp": 72},
   ];
 
+  // Weather block
   Map<String, dynamic> _currentWeatherData = {
     'temperature': 78.0,
     'cloudCover': '20%',
@@ -75,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           "Learn how UV index affects your skin and the best times for sun exposure.",
       "readTime": 3,
       "content":
-          "The UV Index measures the strength of ultraviolet radiation. Aim for sun exposure when UV Index is between 3-6, typically early morning or late afternoon."
+          "The UV Index measures the strength of ultraviolet radiation. Aim for sun exposure when UV Index is between 3–6, typically early morning or late afternoon."
     },
   ];
 
@@ -94,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     setState(() => _isLoadingWeather = true);
 
     try {
+      // Fetch + persist location; returns {latitude, longitude, address}
       final locationData = await _locationService.fetchAndSaveLocation();
       if (locationData != null) {
         final lat = (locationData['latitude'] as num).toDouble();
@@ -104,7 +110,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
         });
 
-        final weatherData = await _weatherService.getCompleteWeatherData(lat, lng);
+        final weatherData =
+            await _weatherService.getCompleteWeatherData(lat, lng);
+
         if (weatherData != null) {
           setState(() {
             _currentWeatherData = {
@@ -113,17 +121,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               'windSpeed':
                   '${(weatherData['wind_speed'] as num?)?.toStringAsFixed(1) ?? '8'} mph',
               'humidity': '${weatherData['humidity'] ?? 65}%',
-              'uvIndex': (weatherData['uv_index'] as num?)?.toDouble() ?? 7.0,
+              'uvIndex':
+                  (weatherData['uv_index'] as num?)?.toDouble() ?? 7.0,
               'visibility': 'Good',
               'precipitation': '0%',
-              'condition': weatherData['weather_condition'] ?? 'Partly Sunny',
+              'condition':
+                  weatherData['weather_condition'] ?? 'Partly Sunny',
               'description': weatherData['description'] ?? 'Partly sunny',
             };
           });
         }
       }
     } catch (e) {
-      print('Error updating location/weather: $e');
+      // keep UI stable on error
+      debugPrint('Error updating location/weather: $e');
     } finally {
       setState(() => _isLoadingWeather = false);
     }
@@ -133,15 +144,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       userGoals = {
-        'primary_goal_type': prefs.getString('primary_goal_type') ?? 'sessions_per_day',
-        'enable_secondary_goal': prefs.getBool('enable_secondary_goal') ?? true,
+        'primary_goal_type':
+            prefs.getString('primary_goal_type') ?? 'sessions_per_day',
+        'enable_secondary_goal':
+            prefs.getBool('enable_secondary_goal') ?? true,
         'secondary_goal_type':
-            prefs.getString('secondary_goal_type') ?? 'minutes_per_session',
+            prefs.getString('secondary_goal_type') ??
+                'minutes_per_session',
         'sessions_per_day': prefs.getInt('sessions_per_day') ?? 2,
-        'minutes_per_session': prefs.getInt('minutes_per_session') ?? 15,
+        'minutes_per_session':
+            prefs.getInt('minutes_per_session') ?? 15,
         'sessions_per_week': prefs.getInt('sessions_per_week') ?? 14,
-        'total_minutes_per_week': prefs.getInt('total_minutes_per_week') ?? 210,
+        'total_minutes_per_week':
+            prefs.getInt('total_minutes_per_week') ?? 210,
       };
+    });
+  }
+
+  // ADD BACK: Saves goals and updates state (fixes the “_saveGoalSettings not defined” error)
+  Future<void> _saveGoalSettings(Map<String, dynamic> newGoals) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('primary_goal_type', newGoals['primary_goal_type']);
+    await prefs.setBool('enable_secondary_goal', newGoals['enable_secondary_goal']);
+    if (newGoals['secondary_goal_type'] != null) {
+      await prefs.setString(
+          'secondary_goal_type', newGoals['secondary_goal_type']);
+    }
+    await prefs.setInt('sessions_per_day', newGoals['sessions_per_day']);
+    await prefs.setInt('minutes_per_session', newGoals['minutes_per_session']);
+    await prefs.setInt('sessions_per_week', newGoals['sessions_per_week']);
+    await prefs.setInt('total_minutes_per_week',
+        newGoals['total_minutes_per_week']);
+
+    setState(() {
+      userGoals = newGoals;
     });
   }
 
@@ -150,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
       body: SafeArea(
+        // Center + ConstrainedBox makes the web build look like a phone app
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
@@ -208,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         backgroundColor: AppTheme.lightTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        icon: CustomIconWidget(
+        icon: const CustomIconWidget(
           iconName: 'wb_sunny',
           color: Colors.white,
           size: 24,
@@ -240,21 +277,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Text(
                     _getGreeting(),
                     style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
-                      color: AppTheme.lightTheme.colorScheme.onSurfaceVariant,
+                      color:
+                          AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   SizedBox(height: 0.5.h),
                   Text(
                     'Ready for some sunshine?',
-                    style: AppTheme.lightTheme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTheme.lightTheme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
               InkWell(
                 onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.notificationsScreen);
+                  Navigator.pushNamed(
+                      context, AppRoutes.notificationsScreen);
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
@@ -264,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withOpacity(0.05),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -291,14 +329,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Expanded(
                 child: Text(
                   _currentLocation,
-                  style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.lightTheme.colorScheme.onSurfaceVariant,
+                  style:
+                      AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                    color:
+                        AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               SizedBox(width: 4.w),
-              CustomIconWidget(
+              const CustomIconWidget(
                 iconName: 'wb_sunny',
                 color: Colors.orange,
                 size: 16,
@@ -307,7 +347,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Text(
                 _currentWeatherData['condition'] ?? 'Partly Sunny',
                 style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.lightTheme.colorScheme.onSurfaceVariant,
+                  color:
+                      AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -319,8 +360,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildGoalProgressSection() {
     final primaryGoalType = userGoals['primary_goal_type'] as String;
-    final enableSecondaryGoal = userGoals['enable_secondary_goal'] as bool;
-    final secondaryGoalType = userGoals['secondary_goal_type'] as String?;
+    final enableSecondaryGoal =
+        userGoals['enable_secondary_goal'] as bool;
+    final secondaryGoalType =
+        userGoals['secondary_goal_type'] as String?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,9 +375,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Text(
                 'Your Goals',
-                style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppTheme.lightTheme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w700),
               ),
               TextButton(
                 onPressed: _editGoals,
@@ -379,15 +421,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Map<String, dynamic> _getGoalInfo(String goalType) {
     switch (goalType) {
       case 'sessions_per_day':
-        return {'title': 'Daily Sessions', 'unit': 'sessions', 'timeframe': 'Today', 'icon': 'wb_sunny'};
+        return {
+          'title': 'Daily Sessions',
+          'unit': 'sessions',
+          'timeframe': 'Today',
+          'icon': 'wb_sunny'
+        };
       case 'minutes_per_session':
-        return {'title': 'Session Duration', 'unit': 'minutes', 'timeframe': 'Per Session', 'icon': 'timer'};
+        return {
+          'title': 'Session Duration',
+          'unit': 'minutes',
+          'timeframe': 'Per Session',
+          'icon': 'timer'
+        };
       case 'sessions_per_week':
-        return {'title': 'Weekly Sessions', 'unit': 'sessions', 'timeframe': 'This Week', 'icon': 'date_range'};
+        return {
+          'title': 'Weekly Sessions',
+          'unit': 'sessions',
+          'timeframe': 'This Week',
+          'icon': 'date_range'
+        };
       case 'total_minutes_per_week':
-        return {'title': 'Weekly Minutes', 'unit': 'minutes', 'timeframe': 'This Week', 'icon': 'schedule'};
+        return {
+          'title': 'Weekly Minutes',
+          'unit': 'minutes',
+          'timeframe': 'This Week',
+          'icon': 'schedule'
+        };
       default:
-        return {'title': 'Daily Sessions', 'unit': 'sessions', 'timeframe': 'Today', 'icon': 'wb_sunny'};
+        return {
+          'title': 'Daily Sessions',
+          'unit': 'sessions',
+          'timeframe': 'Today',
+          'icon': 'wb_sunny'
+        };
     }
   }
 
@@ -414,22 +481,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       AppRoutes.goalEditScreen,
       arguments: {
         'currentGoals': userGoals,
-        'onGoalsChanged': (Map<String, dynamic> newGoals) => _saveGoalSettings(newGoals),
+        'onGoalsChanged': (Map<String, dynamic> newGoals) =>
+            _saveGoalSettings(newGoals),
       },
     );
   }
 
-  Widget _buildDynamicSunWindowCard() => SunWindowCardWidget(
+  Widget _buildDynamicSunWindowCard() => const SunWindowCardWidget(
         startTime: '4 PM',
         endTime: '5:30 PM',
         recommendedMinutes: 15,
         countdownText: '3h 15m',
       );
 
-  Widget _buildDynamicSafetyRecommendations() => SafetyRecommendationsWidget(
+  Widget _buildDynamicSafetyRecommendations() =>
+      const SafetyRecommendationsWidget(
         spfRecommendation: 'SPF 30+ recommended',
         safetyLevel: 'Moderate',
-        protectiveMeasures: const ['Wear sunscreen', 'Stay hydrated', 'Avoid midday sun'],
+        protectiveMeasures: [
+          'Wear sunscreen',
+          'Stay hydrated',
+          'Avoid midday sun'
+        ],
       );
 
   Widget _buildBottomNavigationBar() {
@@ -452,7 +525,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       type: BottomNavigationBarType.fixed,
       backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
       selectedItemColor: AppTheme.lightTheme.primaryColor,
-      unselectedItemColor: AppTheme.lightTheme.colorScheme.onSurfaceVariant,
+      unselectedItemColor:
+          AppTheme.lightTheme.colorScheme.onSurfaceVariant,
       elevation: 8,
       items: [
         _navItem('home', 'Home', 0),
