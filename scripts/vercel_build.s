@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+git clone https://github.com/flutter/flutter.git -b stable --depth 1
+export PATH="$PWD/flutter/bin:$PATH"
+flutter --version
+flutter config --enable-web
+flutter precache --web
+flutter pub get
+flutter build web --release --web-renderer canvaskit
