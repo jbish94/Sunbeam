@@ -116,33 +116,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       // Get current location
       final position = await _locationService.getCurrentLocation();
       if (position != null) {
+        final lat = (position['latitude'] as num).toDouble();
+        final lng = (position['longitude'] as num).toDouble();
+
         // Get address for location
-        final address = await _locationService.getAddressFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
+        final address = await _locationService.getAddressFromCoordinates(lat, lng);
 
         setState(() {
           _currentLocation = address ?? 'Unknown location';
         });
 
         // Get weather data
-        final weatherData = await _weatherService.getCompleteWeatherData(
-          position.latitude,
-          position.longitude,
-        );
+        final weatherData = await _weatherService.getCompleteWeatherData(lat, lng);
 
         if (weatherData != null) {
           setState(() {
             _currentWeatherData = {
-              'temperature': weatherData['temperature']?.round() ?? 78,
+              'temperature': (weatherData['temperature'] as num?)?.round() ?? 78,
               'cloudCover': '${weatherData['cloud_cover'] ?? 20}%',
               'windSpeed':
-                  '${weatherData['wind_speed']?.toStringAsFixed(1) ?? '8'} mph',
+                  '${(weatherData['wind_speed'] as num?)?.toStringAsFixed(1) ?? '8'} mph',
               'humidity': '${weatherData['humidity'] ?? 65}%',
-              'uvIndex': weatherData['uv_index']?.toDouble() ?? 7.0,
+              'uvIndex': (weatherData['uv_index'] as num?)?.toDouble() ?? 7.0,
               'visibility':
-                  _getVisibilityDescription(weatherData['visibility'] ?? 10.0),
+                  _getVisibilityDescription((weatherData['visibility'] as num?)?.toDouble() ?? 10.0),
               'precipitation': '0%', // Not available in current weather
               'condition': weatherData['weather_condition'] ?? 'Partly Sunny',
               'description': weatherData['description'] ?? 'Partly sunny',
@@ -150,9 +147,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           });
 
           // Update hourly data with real temperature if available
-          if (weatherData['temperature'] != null) {
-            _updateHourlyDataWithRealTemp(
-                weatherData['temperature'].toDouble());
+          final tempNum = weatherData['temperature'];
+          if (tempNum != null) {
+            _updateHourlyDataWithRealTemp((tempNum as num).toDouble());
           }
         }
       }
@@ -170,18 +167,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _updateHourlyDataWithRealTemp(double currentTemp) {
     final currentHour = DateTime.now().hour;
 
-    // Update the hourly data to reflect more realistic temperatures based on current weather
     for (int i = 0; i < hourlyUvData.length; i++) {
       final hourData = hourlyUvData[i];
       final hour = _parseHour(hourData['time']);
 
-      // Adjust temperature based on time of day relative to current hour
       double tempAdjustment = 0;
       if (hour < currentHour) {
-        tempAdjustment = -2.0 * (currentHour - hour); // Cooler in past hours
+        tempAdjustment = -2.0 * (currentHour - hour);
       } else if (hour > currentHour) {
-        tempAdjustment =
-            1.0 * (hour - currentHour); // Slightly warmer in future hours
+        tempAdjustment = 1.0 * (hour - currentHour);
       }
 
       hourlyUvData[i]['temp'] = (currentTemp + tempAdjustment).round();
@@ -540,7 +534,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'sessions_per_day':
         return currentProgress['sessions_today'] as int;
       case 'minutes_per_session':
-        // For session duration, show average minutes per session
         final sessionsToday = currentProgress['sessions_today'] as int;
         final minutesToday = currentProgress['minutes_today'] as int;
         return sessionsToday > 0 ? (minutesToday / sessionsToday).round() : 0;
@@ -590,9 +583,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Map<String, dynamic> _calculateNextOptimalSunWindow() {
     final now = DateTime.now();
     final currentHour = now.hour;
-    final currentMinute = now.minute;
 
-    // Define optimal sun windows throughout the day
     final List<Map<String, dynamic>> dailyWindows = [
       {'start': 7, 'startMin': 0, 'end': 9, 'endMin': 30, 'duration': 15},
       {'start': 9, 'startMin': 30, 'end': 11, 'endMin': 0, 'duration': 20},
@@ -600,7 +591,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       {'start': 17, 'startMin': 30, 'end': 19, 'endMin': 0, 'duration': 10},
     ];
 
-    // Find next available window
     DateTime? nextWindowStart;
     Map<String, dynamic>? nextWindow;
 
@@ -610,15 +600,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final windowEnd = DateTime(
           now.year, now.month, now.day, window['end'], window['endMin']);
 
-      // If we're before this window starts, use it
       if (now.isBefore(windowStart)) {
         nextWindowStart = windowStart;
         nextWindow = window;
         break;
-      }
-      // If we're within this window, show next window
-      else if (now.isAfter(windowStart) && now.isBefore(windowEnd)) {
-        // Find next window after current one
+      } else if (now.isAfter(windowStart) && now.isBefore(windowEnd)) {
         final currentIndex = dailyWindows.indexOf(window);
         if (currentIndex < dailyWindows.length - 1) {
           final nextWindowData = dailyWindows[currentIndex + 1];
@@ -626,7 +612,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               nextWindowData['start'], nextWindowData['startMin']);
           nextWindow = nextWindowData;
         } else {
-          // No more windows today, use first window of tomorrow
           nextWindowStart = DateTime(now.year, now.month, now.day + 1,
               dailyWindows[0]['start'], dailyWindows[0]['startMin']);
           nextWindow = dailyWindows[0];
@@ -635,17 +620,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     }
 
-    // If no window found (all windows for today have passed), use first window of tomorrow
     if (nextWindowStart == null) {
       nextWindow = dailyWindows[0];
       nextWindowStart = DateTime(now.year, now.month, now.day + 1,
           nextWindow['start'], nextWindow['startMin']);
     }
 
-    // Calculate countdown
     final difference = nextWindowStart.difference(now);
     String countdownText;
-
     if (difference.inDays > 0) {
       countdownText = 'Tomorrow';
     } else if (difference.inHours > 0) {
@@ -657,7 +639,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       countdownText = '${minutes}m';
     }
 
-    // Format start and end times
     final startHour = nextWindow!['start'] as int;
     final startMin = nextWindow['startMin'] as int;
     final endHour = nextWindow['end'] as int;
@@ -696,7 +677,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     String spfRecommendation;
     List<String> protectiveMeasures;
 
-    // Determine safety level based on UV index and weather conditions
     if (uvIndex <= 2) {
       safetyLevel = 'Low';
       spfRecommendation = 'SPF 15+ recommended for extended exposure';
@@ -758,7 +738,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ];
     }
 
-    // Adjust recommendations based on weather conditions
     if (cloudCover > 70) {
       protectiveMeasures
           .add('Cloud cover reduces UV but doesn\'t eliminate risk');
@@ -785,7 +764,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
         switch (index) {
           case 0:
-            // Already on home
             break;
           case 1:
             Navigator.pushNamed(context, '/log-session-screen');
@@ -864,7 +842,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _isRefreshing = true;
     });
 
-    // Update location and weather from real APIs
     await _updateLocationAndWeather();
 
     setState(() {
