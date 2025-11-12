@@ -122,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadLocationFromSupabase() async {
     try {
-      final locationService = LocationService.instance;
+      final locationService = LocationService();
       final currentLocation =
           await locationService.getCurrentLocationFromSupabase();
 
