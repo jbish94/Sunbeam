@@ -1,5 +1,11 @@
 import 'package:geolocator/geolocator.dart';
 
+class PositionLike {
+  final double latitude;
+  final double longitude;
+  PositionLike(this.latitude, this.longitude);
+}
+
 class LocationService {
   static final instance = LocationService._internal();
   LocationService._internal();
@@ -8,8 +14,10 @@ class LocationService {
     return await Geolocator.isLocationServiceEnabled();
   }
 
-  Future<LocationPermission> requestLocationPermission() async {
-    return await Geolocator.requestPermission();
+  Future<bool> requestLocationPermission() async {
+    final permission = await Geolocator.requestPermission();
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
   }
 
   Future<void> openLocationSettings() async {
@@ -20,28 +28,26 @@ class LocationService {
     await Geolocator.openAppSettings();
   }
 
-  Future<Position> getCurrentLocation() async {
+  Future<PositionLike> getCurrentLocation() async {
     await Geolocator.requestPermission();
-    return await Geolocator.getCurrentPosition();
+    final pos = await Geolocator.getCurrentPosition();
+    return PositionLike(pos.latitude, pos.longitude);
   }
 
-  Future<String> getTimezone() async {
-    // Stubbed; mobile version can later use native APIs or packages
+  Future<String> getTimezone([double? lat, double? lon]) async {
     return DateTime.now().timeZoneName;
   }
 
   Future<String> getAddressFromCoordinates(double lat, double lon) async {
-    // Placeholder; add real reverse geocoding later if needed
     return '$lat, $lon';
   }
 
   Future<void> saveLocationToSupabase(double lat, double lon) async {
-    // Stub for Supabase integration
     print('Saving location to Supabase: $lat, $lon');
   }
 
-  Future<Map<String, double>> getCurrentLocationFromSupabase() async {
-    // Stub; replace with actual Supabase call later
-    return {'latitude': 0.0, 'longitude': 0.0};
+  Future<PositionLike> getCurrentLocationFromSupabase() async {
+    // Stub value
+    return PositionLike(0.0, 0.0);
   }
 }
