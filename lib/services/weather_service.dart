@@ -16,7 +16,6 @@ class WeatherService {
   DateTime? _lastUpdateTime;
   static const int _cacheDurationMinutes = 10; // Cache for 10 minutes
 
-  /// Validate API key configuration
   void _validateApiKey() {
     if (_apiKey.isEmpty) {
       throw Exception(
@@ -24,7 +23,6 @@ class WeatherService {
     }
   }
 
-  /// Check if cached data is still valid
   bool _isCacheValid() {
     if (_lastWeatherData == null || _lastUpdateTime == null) return false;
 
@@ -33,7 +31,6 @@ class WeatherService {
     return difference.inMinutes < _cacheDurationMinutes;
   }
 
-  /// Get current weather by coordinates
   Future<Map<String, dynamic>?> getCurrentWeather(
       double latitude, double longitude) async {
     try {
@@ -66,7 +63,6 @@ class WeatherService {
     }
   }
 
-  /// Get UV Index data
   Future<double?> getUVIndex(double latitude, double longitude) async {
     try {
       _validateApiKey();
@@ -89,7 +85,6 @@ class WeatherService {
     }
   }
 
-  /// Get weather forecast (5 day / 3 hour intervals)
   Future<List<Map<String, dynamic>>?> getWeatherForecast(
       double latitude, double longitude) async {
     try {
@@ -115,7 +110,6 @@ class WeatherService {
     }
   }
 
-  /// Parse weather data from API response
   Map<String, dynamic> _parseWeatherData(Map<String, dynamic> data) {
     final main = data['main'] ?? {};
     final weather = (data['weather'] as List?)?.first ?? {};
@@ -128,8 +122,9 @@ class WeatherService {
       'feels_like': (main['feels_like'] as num?)?.toDouble() ?? 0.0,
       'humidity': (main['humidity'] as num?)?.toInt() ?? 0,
       'pressure': (main['pressure'] as num?)?.toDouble() ?? 0.0,
-      'visibility': ((data['visibility'] as num?)?.toDouble() ?? 10000.0) / 1000.0, // km
-      'uv_index': 0.0, // Will be updated separately
+      'visibility':
+          ((data['visibility'] as num?)?.toDouble() ?? 10000.0) / 1000.0,
+      'uv_index': 0.0,
       'cloud_cover': (clouds['all'] as num?)?.toInt() ?? 0,
       'wind_speed': (wind['speed'] as num?)?.toDouble() ?? 0.0,
       'wind_direction': (wind['deg'] as num?)?.toInt() ?? 0,
@@ -146,7 +141,6 @@ class WeatherService {
     };
   }
 
-  /// Get comprehensive weather data (current + UV index)
   Future<Map<String, dynamic>?> getCompleteWeatherData(
       double latitude, double longitude) async {
     try {
@@ -163,7 +157,6 @@ class WeatherService {
     }
   }
 
-  /// Save weather data to Supabase
   Future<String?> saveWeatherToSupabase(
     Map<String, dynamic> weatherData,
     String locationId,
@@ -208,7 +201,6 @@ class WeatherService {
     }
   }
 
-  /// Get weather data for user's current location
   Future<Map<String, dynamic>?> getWeatherForCurrentLocation() async {
     try {
       final locationService = LocationService();
@@ -227,7 +219,6 @@ class WeatherService {
     }
   }
 
-  /// Update weather data and (optionally) save to database
   Future<Map<String, dynamic>?> updateAndSaveWeatherData() async {
     try {
       final locationService = LocationService();
@@ -235,18 +226,16 @@ class WeatherService {
       final position = await locationService.getCurrentLocation();
       if (position == null) return null;
 
-      // If this returns a bool in your implementation, we simply ignore it here.
       await locationService.saveLocationToSupabase(position);
 
       final lat = position.latitude;
       final lng = position.longitude;
 
-
       final weatherData = await getCompleteWeatherData(lat, lng);
       if (weatherData == null) return null;
 
-      // If you have a way to retrieve a locationId string, call saveWeatherToSupabase(weatherData, locationId).
-      // Skipping the save here to avoid type issues when saveLocationToSupabase returns bool.
+      // If you have a locationId, you can call:
+      // await saveWeatherToSupabase(weatherData, locationId);
       return weatherData;
     } catch (e) {
       print('Error updating and saving weather data: $e');
@@ -254,7 +243,6 @@ class WeatherService {
     }
   }
 
-  /// Get latest weather data from Supabase
   Future<Map<String, dynamic>?> getLatestWeatherFromSupabase() async {
     try {
       final client = SupabaseService.instance.client;
@@ -280,12 +268,10 @@ class WeatherService {
     return null;
   }
 
-  /// Get weather icon URL
   String getWeatherIconUrl(String iconCode) {
     return 'https://openweathermap.org/img/wn/$iconCode@2x.png';
   }
 
-  /// Convert temperature between units
   double convertTemperature(double celsius, {bool toFahrenheit = false}) {
     if (toFahrenheit) {
       return (celsius * 9 / 5) + 32;
@@ -294,7 +280,6 @@ class WeatherService {
     }
   }
 
-  /// Get UV index safety level
   String getUVSafetyLevel(double uvIndex) {
     if (uvIndex <= 2) return 'Low';
     if (uvIndex <= 5) return 'Moderate';
@@ -303,13 +288,11 @@ class WeatherService {
     return 'Extreme';
   }
 
-  /// Clear cached data
   void clearCache() {
     _lastWeatherData = null;
     _lastUpdateTime = null;
   }
 
-  // Getters
   Map<String, dynamic>? get lastWeatherData => _lastWeatherData;
   DateTime? get lastUpdateTime => _lastUpdateTime;
 }
