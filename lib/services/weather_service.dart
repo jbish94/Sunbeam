@@ -217,8 +217,8 @@ class WeatherService {
         throw Exception('Could not get current location');
       }
 
-      final lat = (position['latitude'] as num).toDouble();
-      final lng = (position['longitude'] as num).toDouble();
+      final lat = position.latitude;
+      final lng = position.longitude;
 
       return await getCompleteWeatherData(lat, lng);
     } catch (e) {
@@ -238,8 +238,9 @@ class WeatherService {
       // If this returns a bool in your implementation, we simply ignore it here.
       await locationService.saveLocationToSupabase(position);
 
-      final lat = (position['latitude'] as num).toDouble();
-      final lng = (position['longitude'] as num).toDouble();
+      final lat = position.latitude;
+      final lng = position.longitude;
+
 
       final weatherData = await getCompleteWeatherData(lat, lng);
       if (weatherData == null) return null;
