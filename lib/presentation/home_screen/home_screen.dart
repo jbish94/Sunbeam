@@ -1,5 +1,3 @@
-import 'dart:developer' as dev;
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
@@ -30,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final LocationService _locationService = LocationService();
   final WeatherService _weatherService = WeatherService.instance;
 
-  // Goal settings (persisted)
   Map<String, dynamic> userGoals = {
     'primary_goal_type': 'sessions_per_day',
     'enable_secondary_goal': true,
@@ -41,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'total_minutes_per_week': 210,
   };
 
-  // Mock current progress (replace with real logs later)
   Map<String, dynamic> currentProgress = {
     'sessions_today': 1,
     'minutes_today': 15,
@@ -49,8 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'minutes_this_week': 120,
   };
 
-  // Chart data
-  final List<Map<String, dynamic>> hourlyUvData = const [
+  final List<Map<String, dynamic>> hourlyUvData = [
     {"time": "6AM", "uvIndex": 1, "temp": 65},
     {"time": "8AM", "uvIndex": 3, "temp": 68},
     {"time": "10AM", "uvIndex": 6, "temp": 72},
@@ -61,9 +56,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     {"time": "8PM", "uvIndex": 2, "temp": 72},
   ];
 
-  // Weather block
   Map<String, dynamic> _currentWeatherData = {
-    'temperature': 78.0,
+    'temperature': 78.0, // can be double; we’ll round when using
     'cloudCover': '20%',
     'windSpeed': '8 mph',
     'humidity': '65%',
@@ -74,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'description': 'Partly sunny',
   };
 
-  final List<Map<String, dynamic>> educationArticles = const [
+  final List<Map<String, dynamic>> educationArticles = [
     {
       "id": 1,
       "title": "Understanding UV Index: Your Guide to Safe Sun Exposure",
@@ -99,62 +93,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _updateLocationAndWeather() async {
-    if (!mounted) return;
     setState(() => _isLoadingWeather = true);
 
     try {
       final locationData = await _locationService.fetchAndSaveLocation();
       if (locationData != null) {
-        final lat = (locationData['latitude'] as num?)?.toDouble();
-        final lng = (locationData['longitude'] as num?)?.toDouble();
+        final lat = (locationData['latitude'] as num).toDouble();
+        final lng = (locationData['longitude'] as num).toDouble();
 
-        if (lat != null && lng != null) {
-          if (!mounted) return;
+        setState(() {
+          _currentLocation = locationData['address'] ??
+              "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
+        });
+
+        final weatherData =
+            await _weatherService.getCompleteWeatherData(lat, lng);
+
+        if (weatherData != null) {
           setState(() {
-            _currentLocation = locationData['address'] ??
-                "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
+            _currentWeatherData = {
+              'temperature':
+                  (weatherData['temperature'] as num?)?.toDouble() ?? 78.0,
+              'cloudCover': '${weatherData['cloud_cover'] ?? 20}%',
+              'windSpeed':
+                  '${(weatherData['wind_speed'] as num?)?.toStringAsFixed(1) ?? '8'} mph',
+              'humidity': '${weatherData['humidity'] ?? 65}%',
+              'uvIndex': (weatherData['uv_index'] as num?)?.toDouble() ?? 7.0,
+              'visibility': 'Good',
+              'precipitation': '0%',
+              'condition': weatherData['weather_condition'] ?? 'Partly Sunny',
+              'description': weatherData['description'] ?? 'Partly sunny',
+            };
           });
-
-          final weatherData =
-              await _weatherService.getCompleteWeatherData(lat, lng);
-
-          if (weatherData != null && mounted) {
-            setState(() {
-              _currentWeatherData = {
-                'temperature':
-                    (weatherData['temperature'] as num?)?.round() ?? 78,
-                'cloudCover': '${weatherData['cloud_cover'] ?? 20}%',
-                'windSpeed':
-                    '${(weatherData['wind_speed'] as num?)?.toStringAsFixed(1) ?? '8'} mph',
-                'humidity': '${weatherData['humidity'] ?? 65}%',
-                'uvIndex':
-                    (weatherData['uv_index'] as num?)?.toDouble() ?? 7.0,
-                'visibility': 'Good',
-                'precipitation': '0%',
-                'condition':
-                    weatherData['weather_condition'] ?? 'Partly Sunny',
-                'description': weatherData['description'] ?? 'Partly sunny',
-              };
-            });
-          }
         }
       }
-    } catch (e, st) {
-      dev.log(
-        'Error updating location/weather: $e',
-        stackTrace: st,
-        name: 'HomeScreen',
-      );
-      // keep UI stable
+    } catch (e) {
+      debugPrint('Error updating location/weather: $e');
     } finally {
-      if (!mounted) return;
       setState(() => _isLoadingWeather = false);
     }
   }
 
   Future<void> _loadGoalSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
     setState(() {
       userGoals = {
         'primary_goal_type':
@@ -162,11 +143,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'enable_secondary_goal':
             prefs.getBool('enable_secondary_goal') ?? true,
         'secondary_goal_type':
-            prefs.getString('secondary_goal_type') ??
-                'minutes_per_session',
+            prefs.getString('secondary_goal_type') ?? 'minutes_per_session',
         'sessions_per_day': prefs.getInt('sessions_per_day') ?? 2,
-        'minutes_per_session':
-            prefs.getInt('minutes_per_session') ?? 15,
+        'minutes_per_session': prefs.getInt('minutes_per_session') ?? 15,
         'sessions_per_week': prefs.getInt('sessions_per_week') ?? 14,
         'total_minutes_per_week':
             prefs.getInt('total_minutes_per_week') ?? 210,
@@ -184,13 +163,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           'secondary_goal_type', newGoals['secondary_goal_type']);
     }
     await prefs.setInt('sessions_per_day', newGoals['sessions_per_day']);
-    await prefs.setInt(
-        'minutes_per_session', newGoals['minutes_per_session']);
+    await prefs.setInt('minutes_per_session', newGoals['minutes_per_session']);
     await prefs.setInt('sessions_per_week', newGoals['sessions_per_week']);
     await prefs.setInt(
         'total_minutes_per_week', newGoals['total_minutes_per_week']);
 
-    if (!mounted) return;
     setState(() {
       userGoals = newGoals;
     });
@@ -198,102 +175,92 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    try {
-      return Scaffold(
-        backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: RefreshIndicator(
-                onRefresh: _handleRefresh,
-                color: AppTheme.lightTheme.primaryColor,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      SizedBox(height: 2.h),
-                      _buildGoalProgressSection(),
-                      SizedBox(height: 2.h),
-                      _buildDynamicSunWindowCard(),
-                      SizedBox(height: 1.h),
-                      HourlyUvChartWidget(hourlyData: hourlyUvData),
-                      SizedBox(height: 1.h),
-                      if (_isLoadingWeather)
-                        Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 4.h),
-                            child: CircularProgressIndicator(
-                              color: AppTheme.lightTheme.primaryColor,
-                            ),
+    return Scaffold(
+      backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: RefreshIndicator(
+              onRefresh: _handleRefresh,
+              color: AppTheme.lightTheme.primaryColor,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    SizedBox(height: 2.h),
+                    _buildGoalProgressSection(),
+                    SizedBox(height: 2.h),
+                    _buildDynamicSunWindowCard(),
+                    SizedBox(height: 1.h),
+                    HourlyUvChartWidget(hourlyData: hourlyUvData),
+                    SizedBox(height: 1.h),
+                    if (_isLoadingWeather)
+                      Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4.h),
+                          child: CircularProgressIndicator(
+                            color: AppTheme.lightTheme.primaryColor,
                           ),
-                        )
-                      else
-                        WeatherBadgesWidget(
-                          temperature: _currentWeatherData['temperature'],
-                          cloudCover: _currentWeatherData['cloudCover'],
-                          windSpeed: _currentWeatherData['windSpeed'],
-                          humidity: _currentWeatherData['humidity'],
                         ),
-                      SizedBox(height: 1.h),
-                      _buildDynamicSafetyRecommendations(),
-                      SizedBox(height: 1.h),
-                      EducationPillWidget(
-                        article: educationArticles[0],
-                        onDismiss: () {},
+                      )
+                    else
+                      WeatherBadgesWidget(
+                        // 🔑 ensure we always give an int
+                        temperature:
+                            ((_currentWeatherData['temperature'] as num?) ??
+                                    78)
+                                .round(),
+                        cloudCover:
+                            _currentWeatherData['cloudCover'] as String? ??
+                                '20%',
+                        windSpeed:
+                            _currentWeatherData['windSpeed'] as String? ??
+                                '8 mph',
+                        humidity:
+                            _currentWeatherData['humidity'] as String? ??
+                                '65%',
                       ),
-                      SizedBox(height: 10.h),
-                    ],
-                  ),
+                    SizedBox(height: 1.h),
+                    _buildDynamicSafetyRecommendations(),
+                    SizedBox(height: 1.h),
+                    EducationPillWidget(
+                      article: educationArticles[0],
+                      onDismiss: () {},
+                    ),
+                    SizedBox(height: 10.h),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-        bottomNavigationBar: _buildBottomNavigationBar(),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.pushNamed(context, '/log-session-screen');
-          },
-          backgroundColor: AppTheme.lightTheme.primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          icon: const CustomIconWidget(
-            iconName: 'wb_sunny',
+      ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.pushNamed(context, '/log-session-screen');
+        },
+        backgroundColor: AppTheme.lightTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const CustomIconWidget(
+          iconName: 'wb_sunny',
+          color: Colors.white,
+          size: 24,
+        ),
+        label: Text(
+          'Log Sun Session',
+          style: AppTheme.lightTheme.textTheme.labelLarge?.copyWith(
             color: Colors.white,
-            size: 24,
-          ),
-          label: Text(
-            'Log Sun Session',
-            style: AppTheme.lightTheme.textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            fontWeight: FontWeight.w600,
           ),
         ),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.centerFloat,
-      );
-    } catch (e, st) {
-      // Catch any build-time issue so Rocket doesn’t show its generic error page
-      dev.log('HomeScreen build error: $e',
-          stackTrace: st, name: 'HomeScreen');
-      return Scaffold(
-        backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(8.w),
-            child: Text(
-              'Home screen error. Please reload.',
-              textAlign: TextAlign.center,
-              style: AppTheme.lightTheme.textTheme.bodyLarge,
-            ),
-          ),
-        ),
-      );
-    }
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
   }
 
   Widget _buildHeader() {
@@ -310,10 +277,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     _getGreeting(),
-                    style: AppTheme.lightTheme.textTheme.titleMedium
-                        ?.copyWith(
-                      color: AppTheme
-                          .lightTheme.colorScheme.onSurfaceVariant,
+                    style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                      color:
+                          AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   SizedBox(height: 0.5.h),
@@ -364,10 +330,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Expanded(
                 child: Text(
                   _currentLocation,
-                  style: AppTheme.lightTheme.textTheme.bodyMedium
-                      ?.copyWith(
-                    color: AppTheme
-                        .lightTheme.colorScheme.onSurfaceVariant,
+                  style:
+                      AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                    color:
+                        AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -380,10 +346,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               SizedBox(width: 1.w),
               Text(
-                _currentWeatherData['condition'] ?? 'Partly Sunny',
-                style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme
-                      .lightTheme.colorScheme.onSurfaceVariant,
+                _currentWeatherData['condition'] as String? ??
+                    'Partly Sunny',
+                style:
+                    AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                  color:
+                      AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -417,8 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 onPressed: _editGoals,
                 child: Text(
                   'Edit Goals',
-                  style: AppTheme.lightTheme.textTheme.labelLarge
-                      ?.copyWith(
+                  style: AppTheme.lightTheme.textTheme.labelLarge?.copyWith(
                     color: AppTheme.lightTheme.primaryColor,
                     fontWeight: FontWeight.w600,
                   ),
@@ -437,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildGoalCard(String goalType, {required bool isPrimary}) {
     final Map<String, dynamic> goalInfo = _getGoalInfo(goalType);
     final int currentValue = _getCurrentProgress(goalType);
-    final int targetValue = (userGoals[goalType] as int?) ?? 0;
+    final int targetValue = userGoals[goalType] as int;
 
     return GoalProgressCardWidget(
       goalType: goalInfo['title'],
@@ -497,15 +464,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _getCurrentProgress(String goalType) {
     switch (goalType) {
       case 'sessions_per_day':
-        return currentProgress['sessions_today'] as int? ?? 0;
+        return currentProgress['sessions_today'] as int;
       case 'minutes_per_session':
-        final sessionsToday = currentProgress['sessions_today'] as int? ?? 0;
-        final minutesToday = currentProgress['minutes_today'] as int? ?? 0;
+        final sessionsToday = currentProgress['sessions_today'] as int;
+        final minutesToday = currentProgress['minutes_today'] as int;
         return sessionsToday > 0 ? (minutesToday / sessionsToday).round() : 0;
       case 'sessions_per_week':
-        return currentProgress['sessions_this_week'] as int? ?? 0;
+        return currentProgress['sessions_this_week'] as int;
       case 'total_minutes_per_week':
-        return currentProgress['minutes_this_week'] as int? ?? 0;
+        return currentProgress['minutes_this_week'] as int;
       default:
         return 0;
     }
@@ -594,10 +561,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleRefresh() async {
-    if (!mounted) return;
     setState(() => _isRefreshing = true);
     await _updateLocationAndWeather();
-    if (!mounted) return;
     setState(() => _isRefreshing = false);
   }
 }
