@@ -68,6 +68,27 @@ class LocationService {
     return DateTime.now().timeZoneName;
   }
 
+  import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// inside class LocationService { ... }
+
+final _supabase = Supabase.instance.client;
+
+Future<void> saveLocationToSupabase(Position position) async {
+  final user = _supabase.auth.currentUser;
+  if (user == null) {
+    return; // or throw, depending on your auth model
+  }
+
+  await _supabase.from('user_locations').upsert({
+    'user_id': user.id,
+    'latitude': position.latitude,
+    'longitude': position.longitude,
+    'updated_at': DateTime.now().toIso8601String(),
+  });
+}
+
   /// Used by HomeScreen and others: get current position + address.
   Future<Map<String, dynamic>?> fetchAndSaveLocation() async {
     final position = await getCurrentLocation();
