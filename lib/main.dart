@@ -23,8 +23,8 @@ void main() async {
     if (!_hasShownError) {
       _hasShownError = true;
 
-      // Reset flag after 3 seconds to allow error widget on new screens
-      Future.delayed(Duration(seconds: 5), () {
+      // Reset flag after 5 seconds to allow error widget on new screens
+      Future.delayed(const Duration(seconds: 5), () {
         _hasShownError = false;
       });
 
@@ -32,7 +32,7 @@ void main() async {
         errorDetails: details,
       );
     }
-    return SizedBox.shrink();
+    return const SizedBox.shrink();
   };
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
@@ -52,13 +52,24 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light,
-        // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
+        // 🚨 CRITICAL: NEVER REMOVE OR MODIFY (extended to constrain width)
         builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+
+          final mediaQuery = MediaQuery.of(context);
+
           return MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(1.0),
+            data: mediaQuery.copyWith(
+              textScaler: const TextScaler.linear(1.0),
             ),
-            child: child!,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 430, // “phone” width on desktop
+                ),
+                child: child,
+              ),
+            ),
           );
         },
         // 🚨 END CRITICAL SECTION
